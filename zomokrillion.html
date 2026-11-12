@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zomokrillion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Pixelify+Sans:wght@400;500;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a pasar malam arcade screen. Deep blue night, cream panels with chunky pixel outlines, durians and ketupat on a string, kopitiam colours. */
+:root{
+  --night:#0f1b3d; --tile:#1b2a5c; --edge:#3b4f9c; --paper:#fff6dc; --ink:#16182b;
+  --red:#d62828; --redd:#9d1c1c; --gold:#ffcc29; --jade:#2a9d5c; --soft:#b4c0ee; --dim:#5f5648;
+  --px:"Press Start 2P","Courier New",monospace;
+  --body:"Pixelify Sans","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background-color:var(--night);color:var(--paper);font-family:var(--body);font-size:17px;line-height:1.45}
+#app{max-width:440px;margin:0 auto;padding:0 20px 56px;display:flex;flex-direction:column;gap:22px;min-height:100vh}
+svg,canvas{display:block;flex:none}
+p{margin:0}
+h1,h2,h3{font-family:var(--px);font-weight:400;margin:0;line-height:1.6;text-wrap:balance}
+h1{font-size:18px} h2{font-size:15px} h3{font-size:12px}
+.lbl{font-family:var(--px);font-size:9px;line-height:1.7;text-transform:uppercase;color:var(--paper);font-variant-numeric:tabular-nums}
+.panel .lbl{color:var(--dim)}
+.lbl.gold{color:var(--gold)} .lbl.red{color:var(--red)} .lbl.soft{color:var(--soft)}
+.center{text-align:center}
+.mast{flex-wrap:wrap}
+.mastr{display:flex;align-items:center;gap:10px}
+.logo{display:flex;align-items:center;gap:8px;font-family:var(--px);font-size:10px;line-height:1.4;color:var(--paper)}
+.title{font-family:var(--px);font-size:26px;line-height:1.35;color:var(--red);text-shadow:3px 3px 0 var(--gold);display:flex;flex-direction:column;gap:2px}
+.title span{display:flex;align-items:center;gap:10px}
+@media (max-width:380px){.title{font-size:21px}}
+.mus{font-family:var(--px);font-size:8px;line-height:1.5;text-transform:uppercase;border:0;border-radius:0;padding:6px;cursor:pointer;background:var(--gold);color:var(--night)}
+.mus[aria-pressed="false"]{background:var(--edge);color:var(--paper)}
+.mus:focus-visible{outline:4px solid var(--jade);outline-offset:4px}
+.scene{margin:4px;line-height:0;box-shadow:0 -4px 0 0 var(--gold),0 4px 0 0 var(--gold),-4px 0 0 0 var(--gold),4px 0 0 0 var(--gold)}
+.scene canvas{width:100%;height:auto;image-rendering:pixelated}
+.scene{position:relative}
+.wallwrap{display:flex;flex-direction:column;gap:12px}
+.meter{position:absolute;right:10px;top:8px;text-align:right;font-family:var(--px);font-size:15px;line-height:1.5;color:var(--paper);text-shadow:2px 2px 0 #0b0717}
+.meter small{display:block;font-size:9px;color:var(--gold)}
+.wallbar{height:14px;margin:4px;background:var(--tile);position:relative;overflow:hidden;
+  box-shadow:0 -4px 0 0 var(--paper),0 4px 0 0 var(--paper),-4px 0 0 0 var(--paper),4px 0 0 0 var(--paper)}
+.wallbar i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;transform:scaleX(0)}
+.wallbar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(100%/7 - 3px),var(--night) calc(100%/7 - 3px) calc(100%/7))}
+.meter{color:var(--ink);text-shadow:2px 2px 0 #fff6dc}
+.meter small{color:var(--red)}
+/* how everyone did: one bar per 500 m of wall */
+.dist{display:flex;align-items:flex-end;gap:2px;height:110px;border-bottom:4px solid var(--ink)}
+.col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:pointer;min-width:0}
+.col i{display:block;width:100%;background:#6b5fb0}
+.col.me i{background:var(--red)}
+.col:focus-visible{outline:3px solid var(--jade);outline-offset:1px}
+.you{font-family:var(--px);font-size:7px;line-height:1.2;color:var(--ink)}
+.axis{display:flex;justify-content:space-between}
+.pts.big{font-size:18px}
+.lv{font-family:var(--px);font-size:8px;line-height:1.4;text-transform:uppercase;padding:4px 6px;white-space:nowrap;color:var(--paper);background:var(--dim)}
+.lv.l2{background:#3f7d6a}.lv.l3{background:#2b6cb0}.lv.l4{background:#7b3fb3}.lv.l5{background:var(--red)}
+.row .lv{margin-left:6px;font-size:7px;padding:2px 4px;vertical-align:middle}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.lbl.warn{color:#ff8a6e}
+.field{display:flex;flex-direction:column;gap:8px}
+.field input[type=text]{border-color:var(--gold)}
+/* lantern string */
+.garland{display:flex;justify-content:space-between;align-items:flex-start;border-top:4px solid #6b4a2b;padding:0 6px;height:76px}
+.lan{padding-top:var(--h);background:linear-gradient(#6b4a2b,#6b4a2b) top center/3px var(--h) no-repeat;transform-origin:top center;animation:sway 1.6s steps(2,end) infinite alternate}
+@keyframes sway{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}
+.mast{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:4px dashed var(--gold);padding-bottom:12px}
+/* pixel outline: four hard shadows make notched corners */
+.panel{background:var(--paper);color:var(--ink);padding:18px;margin:4px;display:flex;flex-direction:column;gap:12px;
+  box-shadow:0 -4px 0 0 var(--gold),0 4px 0 0 var(--gold),-4px 0 0 0 var(--gold),4px 0 0 0 var(--gold),0 10px 0 0 #0b0717}
+.panel p{color:var(--dim)}
+.row2{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.seal{background:var(--gold);color:var(--ink);font-family:var(--px);font-size:9px;line-height:1.5;text-align:center;padding:8px;margin:3px;flex:none;max-width:96px;
+  box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),-3px 0 0 0 var(--ink),3px 0 0 0 var(--ink)}
+.score small{font-size:16px;text-shadow:none;color:var(--ink)}
+.btn{font-family:var(--px);font-size:12px;line-height:1.6;text-transform:uppercase;color:var(--paper);background:var(--red);border:0;border-radius:0;
+  padding:16px 12px 20px;margin:4px;width:calc(100% - 8px);cursor:pointer;
+  box-shadow:0 -4px 0 0 var(--paper),0 4px 0 0 var(--paper),-4px 0 0 0 var(--paper),4px 0 0 0 var(--paper),inset 0 -6px 0 0 var(--redd)}
+.panel .btn{box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 var(--redd)}
+.btn:active{transform:translateY(2px)}
+.btn.ghost{background:var(--tile);box-shadow:0 -4px 0 0 var(--soft),0 4px 0 0 var(--soft),-4px 0 0 0 var(--soft),4px 0 0 0 var(--soft),inset 0 -6px 0 0 var(--night)}
+.btn:focus-visible,input:focus-visible{outline:4px solid var(--jade);outline-offset:6px}
+.cats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 8px}
+.cat{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;line-height:1.2;text-align:center;color:var(--soft)}
+.tile{width:56px;height:56px;margin:3px;display:grid;place-items:center;background:var(--tile);flex:none;
+  box-shadow:0 -3px 0 0 var(--edge),0 3px 0 0 var(--edge),-3px 0 0 0 var(--edge),3px 0 0 0 var(--edge)}
+.rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rules li{display:flex;gap:14px;padding:12px 0;border-bottom:2px dashed var(--edge);align-items:baseline}
+.rules .lbl{flex:none}
+.note{font-size:15px;color:var(--soft);border-left:4px solid var(--gold);padding-left:10px}
+/* play */
+.play{display:flex;flex-direction:column;gap:16px}
+.qhead{display:flex;justify-content:space-between;align-items:center}
+.secs{font-family:var(--px);font-size:20px;color:var(--gold);font-variant-numeric:tabular-nums}
+.bar{height:16px;margin:4px;background:var(--tile);position:relative;overflow:hidden;
+  box-shadow:0 -4px 0 0 var(--paper),0 4px 0 0 var(--paper),-4px 0 0 0 var(--paper),4px 0 0 0 var(--paper)}
+.bar i{display:block;height:100%;width:100%;background:var(--red);transform-origin:left}
+.bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 10px,var(--night) 10px 12px)}
+.qcat{display:flex;align-items:center;gap:12px}
+.chip{font-family:var(--px);font-size:9px;line-height:1.6;text-transform:uppercase;background:var(--ink);color:var(--paper);padding:6px 8px}
+.qpanel{margin-top:8px}
+.qpanel h2{min-height:48px}
+input[type=text]{width:100%;font:500 20px var(--body);padding:12px;border:4px solid var(--ink);border-radius:0;background:#fff;color:var(--ink)}
+/* result */
+.score{font-family:var(--px);font-size:52px;line-height:1.15;color:var(--red);text-shadow:4px 4px 0 var(--gold);font-variant-numeric:tabular-nums}
+.rank{display:flex;justify-content:space-between;align-items:center;border-top:4px dashed var(--ink);padding-top:12px;gap:12px}
+.rank strong{font-family:var(--px);font-size:10px;font-weight:400;line-height:1.6;text-align:right}
+.sec{display:flex;flex-direction:column;gap:16px}
+.sec>h3{color:var(--gold);border-bottom:4px dashed var(--gold);padding-bottom:10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.qa{padding:14px;gap:8px}
+.qa .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.qa .top strong{font-size:16px;line-height:1.3}
+.pts{font-family:var(--px);font-size:10px;color:var(--red);flex:none}
+.pts.zero{color:var(--dim)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 56px 24px;gap:8px;align-items:center;font-size:15px}
+.row span:first-child{overflow-wrap:anywhere}
+.row .m{height:8px;background:#e6d5b0;overflow:hidden}
+.row .m i{display:block;height:100%;background:#c98f14}
+.row.me{font-weight:700}.row.me .m i{background:var(--red)}
+.row .n{font-family:var(--px);font-size:8px;text-align:right;color:var(--dim)}
+.tag{font-family:var(--px);font-size:7px;line-height:1.4;background:var(--red);color:var(--paper);padding:3px 4px;margin-left:6px;white-space:nowrap;vertical-align:middle}
+.lb{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;padding:8px 0;border-bottom:2px dashed #cdbb9a;align-items:baseline}
+.lb:last-child{border-bottom:0}
+.lb .lbl{color:var(--red)}
+.lb.me{font-weight:700}
+.lb span:nth-child(2){overflow-wrap:anywhere}
+.acts{display:flex;flex-direction:column;gap:12px}
+@media (max-width:360px){.score{font-size:40px} h1{font-size:16px}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+// ---------- 1. Game data (edit this part to change questions) ----------
+const SECS = 30;            // seconds per question
+// Each entry: Answer#level@note|other spelling|other spelling ; next entry ...
+// The note is shown beside the answer in the reveal. "!" in front marks a known wrong answer (its note explains why).
+// Rarity level of every answer: 1 = everyone says it ... 5 = almost nobody does.
+// Levels are written right after the answer: "Durian#1" = level 1. They are hand-set estimates.
+const LEVELS = ["", "Tourist", "Regular", "Local", "Otai", "Legend"];
+const POINTS = [0, 20, 40, 60, 80, 100];
+const TIERS = [ // [minimum score, title, badge, line]
+  [90,"Milo Godzilla","KAW KAW","Kaw kaw. The spoon stands up by itself."],
+  [75,"Milo Dinosaur","DINO","Extra powder on top. Power lah."],
+  [55,"Milo Gao","GAO","Thick enough. The kopitiam uncle approves."],
+  [35,"Milo Biasa","BIASA","A standard cup. Can be more gao."],
+  [0, "Milo Cair","CAIR","Basically brown water. Add more Milo."]
+];
+const SETS = [
+// ===== DAY 1 =====
+[
+{c:"Places", i:"pin", h:"There are 13 states and 3 federal territories.", p:"Name a state or federal territory of Malaysia.", d:`Selangor#1; Penang#1@Pulau Pinang|pinang; Johor#1|johore; Kuala Lumpur#1@a federal territory|kl|wilayah persekutuan kuala lumpur; Sabah#2; Sarawak#2; Melaka#2|malacca; Perak#3; Pahang#3; Kedah#3; Kelantan#3; Terengganu#4|trengganu; Negeri Sembilan#4|n9|negri sembilan; Putrajaya#4@a federal territory; Perlis#5; Labuan#5@a federal territory; !Singapore@it left Malaysia in 1965; !Brunei@a separate country; !Langkawi@an island in Kedah, not a state; !Ipoh@a city in Perak, not a state; !Genting@a hill resort in Pahang, not a state|genting highlands; !Johor Bahru@a city in Johor, not a state|jb; !Borneo@an island: Sabah and Sarawak are the states on it; !Kuching@a city, not a state|kota kinabalu`},
+{c:"Makan", i:"nasilemak", h:"Hawker stall, mamak, kopitiam, pasar malam: anything goes.", p:"Name a Malaysian food or drink.", d:`Nasi lemak#1; Roti canai#1|roti prata|prata|roti chanai; Satay#1|sate; Char kway teow#1|char kuey teow|ckt|char koay teow|fried kway teow; Laksa#1|curry laksa|laksa lemak|nyonya laksa; Teh tarik#1|pulled tea; Nasi goreng#2|fried rice|nasi goreng kampung; Mee goreng#2|mee goreng mamak|fried noodles; Rendang#2|beef rendang|rendang daging; Bak kut teh#2|bkt|bah kut teh; Chicken rice#2|hainanese chicken rice|nasi ayam; Hokkien mee#2|kl hokkien mee|hokkien char mee|penang hokkien mee|prawn mee; Cendol#2|chendol; Asam laksa#2|penang laksa|assam laksa; Ais kacang#2|abc|ais batu campur|ice kacang; Durian#2; Kaya toast#2|roti bakar|kaya butter toast; Kopi#2|kopi o|white coffee|ipoh white coffee|kopi c|coffee; Milo#2|milo ais|milo dinosaur|milo gao; Pisang goreng#2|goreng pisang|banana fritters|fried banana; Sambal#2|sambal belacan; Kuih#2|kueh|kuih muih|nyonya kuih; Rojak#3|pasembur|rojak buah; Nasi kandar#3; Banana leaf rice#3|banana leaf|nasi daun pisang; Wantan mee#3|wonton mee|wan tan mee|wonton noodles; Pan mee#3|ban mian|chilli pan mee; Curry mee#3|curry noodles; Mee rebus#3; Mee siam#3; Ikan bakar#3|grilled fish; Ketupat#3; Murtabak#3|martabak; Apam balik#3|ban chang kuih|peanut pancake; Kuih lapis#3|kueh lapis|layer cake; Onde-onde#3|ondeh ondeh|onde onde|buah melaka; Yong tau foo#3|yong tau fu|ytf; Chee cheong fun#3|ccf; Popiah#3; Thosai#3|dosa|tosai; Nasi briyani#3|biryani|nasi beriani|briyani; Maggi goreng#3|maggi mee goreng; Ramly burger#3|burger ramly; Steamboat#3|lok lok; Tau fu fah#3|tau foo fah|soya beancurd|douhua; Pineapple tart#3|pineapple tarts|kuih tat; Sirap bandung#3|bandung|air bandung; Curry puff#3|karipap|epok epok; Nasi campur#3|economy rice|mixed rice|chap fan|nasi berlauk; Teh ais#3|teh o ais|teh o|teh c; Roti tisu#4|roti tissue; Lor mee#4; Nasi kerabu#4; Nasi dagang#4; Ayam percik#4; Otak-otak#4|otak otak|otah; Lontong#4; Lemang#4; Roti john#4; Keropok lekor#4|keropok; Kolo mee#4|kolok mee; Satay celup#4; Cucur udang#4|prawn fritters|cucur; Pulut hitam#4|bubur pulut hitam|black glutinous rice; Oyster omelette#4|or chien|oh chien; Dodol#4; Sarawak laksa#4|laksa sarawak; Soya cincau#4|michael jackson; Fish head curry#4|kari kepala ikan; Sup kambing#4|mutton soup; Air mata kucing#5; Tuak#5; Tuaran mee#5; Hinava#5; Umai#5; Manok pansoh#5|ayam pansuh|pansuh; Ambuyat#5; Nasi ulam#5; Mee bandung#5|mee bandung muar; Budu#5; Tempoyak#5; Bahulu#5|kuih bahulu; Kuih bangkit#5; Nasi tomato#5; Laksam#5; Putu mayam#5|putu mayong|idiyappam; Kuih kapit#5|love letters; Lei cha#5|thunder tea rice|hakka lei cha; !Sushi@that one is Japanese; !Pad thai@that one is Thai|tom yam|tom yum; !Chilli crab@that one is Singapore's pride|chili crab; !Pho@that one is Vietnamese; !Kimchi@that one is Korean; !Pizza@not quite`},
+{c:"Jalan-jalan", i:"towers", h:"Cities, islands, highlands, landmarks.", p:"Name a place to visit in Malaysia.", d:`Petronas Twin Towers#1|klcc|twin towers|petronas towers|petronas|menara berkembar petronas; Batu Caves#1; Genting Highlands#1|genting; Langkawi#1|pulau langkawi; Kuala Lumpur#1|kl; Penang#2|george town|georgetown|pulau pinang; Melaka#2|malacca|jonker street|jonker walk|jonker; Cameron Highlands#2|cameron|camerons; Mount Kinabalu#2|kinabalu|gunung kinabalu; KL Tower#3|menara kl|menara kuala lumpur; Legoland Malaysia#3|legoland; Sunway Lagoon#3|sunway pyramid|sunway; Bukit Bintang#3|pavilion kl|pavilion; Merdeka Square#3|dataran merdeka|independence square; Putrajaya#3; Perhentian Islands#3|perhentian|pulau perhentian; Tioman#3|pulau tioman|tioman island; Redang#3|pulau redang|redang island; Taman Negara#3|national park; Penang Hill#3|bukit bendera; Port Dickson#3|pd; Ipoh#3; Kuching#3; Kota Kinabalu#3|kk; Johor Bahru#3|jb; Merdeka 118#3|pnb 118|menara merdeka 118; Petaling Street#3|chinatown kl|jalan petaling; Langkawi Sky Bridge#3|sky bridge|langkawi cable car|skycab; Sipadan#4|pulau sipadan; Mulu Caves#4|gunung mulu|mulu|mulu national park; Kek Lok Si#4|kek lok si temple; A Famosa#4|porta de santiago; Pangkor#4|pulau pangkor|pangkor island; Semporna#4; Fraser's Hill#4|frasers hill|bukit fraser; Sky Mirror#4|kuala selangor|sasaran; Central Market#4|pasar seni; Desaru#4; Lost World of Tambun#4|lost world|tambun; Zoo Negara#4|national zoo; Aquaria KLCC#4|aquaria; Stadthuys#4|red square melaka|dutch square; Kundasang#4|desa cattle farm; Jalan Alor#4; Kuala Terengganu#4|crystal mosque|masjid kristal; Kota Bharu#4; Taiping#4|taiping lake gardens; Miri#4; Sandakan#4; Danum Valley#5; Kinabatangan#5|kinabatangan river|sungai kinabatangan; Bako National Park#5|bako; Niah Caves#5|niah; Kellie's Castle#5|kellies castle; Thean Hou Temple#5|thean hou; Sepilok#5|sepilok orangutan sanctuary|orangutan sanctuary; Royal Belum#5|belum|belum rainforest|temenggor; Colmar Tropicale#5|bukit tinggi; i-City#5|i city; Cheong Fatt Tze Mansion#5|blue mansion; Chew Jetty#5|clan jetties; Eagle Square#5|dataran lang; Kapas Island#5|pulau kapas; Mabul#5|pulau mabul; Lang Tengah#5; Rawa Island#5|pulau rawa; Gua Tempurung#5|tempurung cave; Kuala Gandah#5|elephant sanctuary; Tip of Borneo#5|simpang mengayau|kudat; Bario#5|kelabit highlands; Sekinchan#5; Tanjung Aru#5; Gaya Street#5; Pinang Peranakan Mansion#5; Alor Setar#5; Muar#5; Kluang#5; Labuan#5; !Marina Bay Sands@that one is in Singapore|mbs; !Sentosa@that one is in Singapore|universal studios singapore|uss; !Bali@that one is in Indonesia; !Phuket@that one is in Thailand|bangkok; !Borobudur@that one is in Indonesia`},
+{c:"Makan", i:"durian", h:"What's on the fruit stall by the road?", p:"Name a local Malaysian fruit.", d:`Durian#1|king of fruits; Rambutan#1; Mangosteen#2|manggis|queen of fruits; Mango#2|mangga|harumanis; Banana#2|pisang|pisang mas|pisang berangan; Pineapple#2|nanas|nenas; Coconut#2|kelapa; Papaya#3|betik; Watermelon#3|tembikai; Jackfruit#3|nangka; Cempedak#3|chempedak; Guava#3|jambu batu|jambu; Starfruit#3|belimbing|carambola; Pomelo#3|limau bali|tambun pomelo; Dragon fruit#3|buah naga|pitaya; Musang King#3|mao shan wang|d197|raja kunyit; Langsat#4; Duku#4|duku langsat; Ciku#4|chiku|sapodilla; Longan#4|mata kucing; Salak#4|snake fruit|buah salak; Soursop#4|durian belanda; Rose apple#4|jambu air|water apple; Strawberry#4@grown in Cameron Highlands|strawberries; D24#4|sultan durian|d24 durian; Lime#4|limau|limau kasturi|calamansi; Dokong#5; Pulasan#5; Tarap#5|terap|marang; Dabai#5|buah dabai; Bambangan#5; Kedondong#5|ambarella|buah long long; Sugar apple#5|buah nona|custard apple; Sentul#5|santol; Binjai#5; Black Thorn#5|ochee|duri hitam|black thorn durian; Red Prawn#5|udang merah|ang hae; Kundang#5|buah kundang; Asam gelugor#5|asam keping; Nipah#5|attap chee|buah nipah; Rambai#5; Keranji#5|buah keranji|velvet tamarind; !Apple@not a local one: it needs a cold climate|grapes|kiwi|cherry|peach; !Petai@a bean, not a fruit, but full marks for bravery|stink bean`},
+{c:"Hutan", i:"tiger", h:"Rainforest, mangrove, reef or river.", p:"Name a wild animal found in Malaysia.", d:`Tiger#1@Malayan tiger|harimau|harimau malaya; Orangutan#1|orang utan|orang utans; Monkey#2|macaque|long-tailed macaque|monyet|kera; Hornbill#2|rhinoceros hornbill|burung kenyalang|kenyalang|burung enggang; Proboscis monkey#2|bekantan|monyet belanda; Tapir#2|malayan tapir|tenuk|cipan; Elephant#2|borneo pygmy elephant|pygmy elephant|asian elephant|gajah; Sun bear#3|malayan sun bear|beruang madu|honey bear; Monitor lizard#3|biawak|water monitor; King cobra#3|cobra|ular tedung|snake|ular; Python#3|reticulated python|ular sawa; Mouse deer#3|kancil|pelanduk|sang kancil; Crocodile#3|buaya|saltwater crocodile; Sea turtle#3|turtle|leatherback turtle|penyu|green turtle|hawksbill; Civet#3|musang|civet cat|luwak; Bat#3|flying fox|fruit bat|kelawar; Wild boar#3|babi hutan|boar; Eagle#3|brahminy kite|helang|sea eagle|white-bellied sea eagle; Gecko#3|cicak|house lizard|tokay; Pangolin#4|tenggiling|sunda pangolin; Clouded leopard#4|harimau dahan; Slow loris#4|kongkang|kukang; Gibbon#4|ungka|siamang; Firefly#4|fireflies|kelip-kelip|kelip kelip; Dugong#4|sea cow; Leopard#4|black panther|harimau kumbang|panther; Otter#4|memerang; Kingfisher#4|raja udang; Dusky langur#4|dusky leaf monkey|spectacled langur|lotong|silvered leaf monkey|langur; Squirrel#4|tupai|flying squirrel; Whale shark#4|jerung paus; Binturong#5|bearcat; Gaur#5|seladang; Tarsier#5|kera hantu; Colugo#5|flying lemur|kubung; Pit viper#5|wagler's pit viper|temple viper; Dhole#5|wild dog|anjing hutan; Serow#5|kambing gurun; Porcupine#5|landak; Rajah Brooke's birdwing#5|rajah brooke butterfly|rajah brooke|butterfly|kupu-kupu; Mudskipper#5|ikan belacak; Horseshoe crab#5|belangkas; Banteng#5|tembadau; Bearded pig#5|bornean bearded pig; Irrawaddy dolphin#5|dolphin; Argus pheasant#5|great argus|kuang raya; !Panda@not a wild animal here: Malaysia only ever had them on loan from China|giant panda; !Lion@not found in the wild here; !Kangaroo@that one lives in Australia|koala; !Komodo dragon@that one lives in Indonesia|komodo; !Giraffe@not found in the wild here|zebra; !Rhinoceros@sadly, the Sumatran rhino died out in Malaysia in 2019|rhino|sumatran rhino|badak; !Rafflesia@a giant flower, not an animal`},
+{c:"Orang", i:"shuttle", h:"Athletes, singers, actors, leaders, anyone famous.", p:"Name a famous Malaysian.", d:`Michelle Yeoh#1|yeoh choo kheng; Lee Chong Wei#1|datuk lee chong wei|lcw|chong wei; Siti Nurhaliza#2|siti|dato siti|ctdk; P. Ramlee#2|p ramlee|ramlee; Mahathir Mohamad#2|mahathir|tun m|dr m|tun mahathir; Anwar Ibrahim#2|anwar|pmx; Nicol David#2|nicol; Jimmy Choo#2; Uncle Roger#2|nigel ng; Lee Zii Jia#2|lzj|zii jia; Tunku Abdul Rahman#3|tunku|bapa malaysia; Yuna#3; Namewee#3|wee meng chee|huang mingzhi; Henry Golding#3; Ronny Chieng#3; Tony Fernandes#3; Robert Kuok#3; Pandelela Rinong#3|pandelela; Azizulhasni Awang#3|azizul|pocket rocketman; Fish Leong#3|liang jing ru|梁静茹; Lat#3|datuk lat|kampung boy; Najib Razak#3|najib; Mokhtar Dahari#3|supermokh|mokhtar; Yasmin Ahmad#3; Chef Wan#3; Khairul Aming#3; Neelofa#3|lofa; Shila Amzah#3; Sheila Majid#4; Zee Avi#4; Michael Wong#4|guang liang|光良; Penny Tai#4|戴佩妮; Gary Chaw#4|cao ge; Eric Moo#4|巫启贤; Joyce Chu#4|四叶草; Faizal Tahir#4; Sudirman#4|sudirman arshad; Tun Abdul Razak#4|abdul razak|tun razak; Harith Iskander#4; Rashid Sidek#4; Misbun Sidek#4|misbun; Goh Liu Ying#4; Aaron Chia#4; Soh Wooi Yik#4; Pearly Tan#4; Lisa Surihani#4; Maya Karin#4; Tsai Ming-liang#4|tsai ming liang; James Wan#4; Awie#4; Ella#4; M. Nasir#4|m nasir; Jaclyn Victor#4; Joe Flizzow#4; Ah Niu#4|tan kheng seong|阿牛; Lee Sinje#4|angelica lee|李心洁; Vivy Yusof#4; Ziyad Zolkefli#4; Cheah Liek Hou#4; Bonnie Bunyau Gustin#4|bonnie bunyau; Sultan Ibrahim#4|agong|yang di-pertuan agong; Jess Lee#5; Mizz Nina#5; Soh Chin Aun#5|tauke; Farah Ann#5|farah ann abdul hadi; Shalin Zulkifli#5; Daphne Iking#5; Ning Baizura#5; Amy Search#5|amy; Zainal Abidin#5; Dayang Nurfaizah#5; Ernie Zakri#5; Aina Abdul#5; Hael Husaini#5; SonaOne#5; Bront Palarae#5; Sharifah Amani#5; Abdullah Badawi#5|pak lah; Hussein Onn#5|tun hussein onn; Muhyiddin Yassin#5|muhyiddin; Ismail Sabri#5|ismail sabri yaakob; Tan Twan Eng#5; Tash Aw#5; Zeti Akhtar Aziz#5|zeti; Sivasangari#5|sivasangari subramaniam; Ng Tze Yong#5; !Lee Kuan Yew@that one was Singapore's founding prime minister|lky; !JJ Lin@that one is from Singapore|stefanie sun|sun yanzi; !Jackie Chan@that one is from Hong Kong; !Manny Pacquiao@that one is from the Philippines|pacquiao; !Agnez Mo@that one is from Indonesia; !Joseph Schooling@that one is from Singapore|schooling; !Loh Kean Yew@born in Penang, but he plays for Singapore`},
+{c:"Cakap", i:"bubble", h:"The words that make English sound Malaysian.", p:"Name a Malaysian slang word or Manglish expression.", d:`Lah#1|la|lar; Makan#1@eat|makan makan; Jom#1@let's go|jom lah; Alamak#1|alamak eh; Boleh#2@yes, can|boleh lah|malaysia boleh; Can#2|can lah|cannot|can or not|can ah; Tapau#2@takeaway|ta pau|tapao|bungkus|dabao; Lepak#2@hang out|lepaking; Syok#2@feels great|shiok|syok sendiri; Aiyo#2|aiyoh|aiyoyo|aiya|aiyah|aiyo yo; Mamak#2; Kiasu#2@afraid to lose; Power#2|power lah|terror; Best#2|best giler|terbaik; Blur#2|blur blur|blur like sotong|sotong; Fuyoh#2|fuiyoh|fuyo|fuiyo|haiya; Boss#2; Gostan#3@reverse|go stan|gostan balik; Kantoi#3@caught red-handed; Walao#3|wah lau|walau|walao eh|wah lao; Wei#3|weh; Bojio#3@you didn't invite me|bo jio; Yum cha#3@hang out over drinks|yamcha|yam cha; Kawan#3@friend|member|geng; Padan muka#3@serves you right; Cincai#3@anyhow, whatever|cin cai|chin chai; Tahan#3@endure|cannot tahan|tak tahan; Paiseh#3@embarrassed|pai seh; Kaypoh#3@busybody|kepoh|kepochi|kaypochi; Yam seng#3@cheers|yum seng; Where got#3|mana ada|got meh; Cun#3@good-looking, just right; Leng zai#3@handsome|leng lui|lenglui|lengzai; Macha#3@bro|machi; Ane#3@what you call the mamak guy|anneh|anne; Kacau#3@disturb; Siao#3@crazy|gila|gilo; Steady#3|steady lah|steady bom bibi|steady pom pi pi; Sien#3@bored, fed up|sian; Kena#3|kena scold|kena saman; Kaw kaw#3@extra strong|kau kau|kaw|gao|kao; Jalan-jalan#3@go for a stroll|jalan jalan|jalan jalan cari makan; Tak apa#3@never mind|takpe|tak pe|tidak apa|tidapathy; Abuden#4@obviously|abuthen|ah bu den; Potong stim#4@killjoy|potong; Outstation#4@out of town; Action#4@show off|eksyen|eksen; Kautim#4@settle it|kao tim|kow tim; Pokai#4@broke; Mabuk#4@drunk; Lansi#4@arrogant; Chup#4@reserve it|chope; Tumpang#4@hitch a ride; Giler#4; On the way#4|otw|coming coming; Got or not#4|got|sure or not|sure ah; Like that one#4|liddat|like that|liddat one|one; Ah long#4@loan shark; Cari makan#4@earn a living; Suka hati#4@as you like|ikut suka; Poyo#4@show-off, lame; Gempak#4@awesome|gempaq; Bajet#4@acting like|bajet bagus; Padu#4@solid, awesome; Gaji buta#5@paid for doing nothing; Hampalang#5@everything; Ngam#5@just right|ngam ngam; Tackle#5@to woo someone; Yilek#5@nothing, zero|yillek; Mempersiasuikan#5@embarrassing|siasui; Cilok#5; Senget#5|sewel; Skema#5@nerdy, by the book; Lempang#5@slap; Pishang#5@bored; Koyak#5@salty, triggered; !Mate@that one is Australian|g'day; !Y'all@that one is American`}
+]
+];
+// ---- Which day is it? The day changes at midnight Singapore time, for everyone. ----
+const START = "2026-11-12";                                   // the date of Day 1 (change this to restart the week)
+const sgDate = ms => new Date(ms+8*3600e3).toISOString().slice(0,10);
+const DAY = sgDate(Date.now());                               // e.g. "2026-11-13": also the key used in the database
+const DAYNUM = Math.max(1, Math.round((Date.parse(DAY)-Date.parse(START))/86400000)+1);
+const Q = SETS[(DAYNUM-1) % SETS.length];                     // after the last set it starts again from the first
+
+const T2S = {};
+(()=>{const t="漿饅頭腸麵餛飩湯餅條飯雞糰團鍋貼餃熱乾燙節龍門國劇傳紅樓夢遊記慶餘歡樂頌還豬鴨燒滷粵廣東車長風聲陽銀寶華為爲買賣鹽醬絲魚檸鳳燈籠錢歲聯對掃墳賽圓給壓貓網訊騰農鮮達綠飲營養線馬無語絕內擺爛發瘋顯鹹蘿涼麗島濟寧鄭陝蘭貴廈瀋爾濱連蘇錫漢滬鎮鵬鷺這個們時會說過來開關見愛樣麼點兒親亞鐵嶽觀偽裝請問萬與歸葉雲義劍俠鬥羅陸讓飛彈潛鄉婦戀結戰爭廚遲燭課業輪轉運齒領遙質疑堅強臉書電腦機場藥皂纖維潔",
+ s="浆馒头肠面馄饨汤饼条饭鸡团团锅贴饺热干烫节龙门国剧传红楼梦游记庆余欢乐颂还猪鸭烧卤粤广东车长风声阳银宝华为为买卖盐酱丝鱼柠凤灯笼钱岁联对扫坟赛圆给压猫网讯腾农鲜达绿饮营养线马无语绝内摆烂发疯显咸萝凉丽岛济宁郑陕兰贵厦沈尔滨连苏锡汉沪镇鹏鹭这个们时会说过来开关见爱样么点儿亲亚铁岳观伪装请问万与归叶云义剑侠斗罗陆让飞弹潜乡妇恋结战争厨迟烛课业轮转运齿领遥质疑坚强脸书电脑机场药皂纤维洁";
+ const a=[...t],b=[...s];a.forEach((ch,i)=>{T2S[ch]=b[i]});})();
+// norm: lower case, no tone marks, no "the/a/an" at the start, no spaces or punctuation, traditional -> simplified
+function norm(s){
+  const x=String(s||"").normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim().replace(/^(the|an|a)\s+/,"");
+  return [...x].map(ch=>T2S[ch]||ch).join("").replace(/[\s\p{P}\p{S}]/gu,"");
+}
+function buildSet(set){
+  const unknown=[];
+  const INDEX = set.map(q=>{ // spelling -> {name, note, ok, lv}
+    const m=new Map();
+    q.d.split(";").map(e=>e.trim()).filter(Boolean).forEach(entry=>{
+      const parts=entry.split("|"); let [name,note]=parts[0].split("@");
+      name=name.trim(); const ok=!name.startsWith("!"); name=name.replace(/^!/,"").trim();
+      const lv=name.match(/#([1-5])$/); if(lv) name=name.slice(0,-2).trim();
+      const rec={name, note:(note||"").trim(), ok, lv: lv?+lv[1]:0};
+      [name, ok?rec.note:"", ...parts.slice(1)].forEach(a=>{const k=norm(a); if(k && !m.has(k)) m.set(k,rec);});
+    });
+    return m;
+  });
+  const LEVEL = set.map((q,i)=>{  // answer name -> level 1..5
+    const recs=[...new Set(INDEX[i].values())].filter(r=>r.ok), names=new Set(recs.map(r=>r.name)), m=new Map(), r=q.r||{};
+    recs.forEach(x=>m.set(x.name, x.lv||r.def||3));
+    [1,2,3,4,5].forEach(l=>(r[l]||"").split(";").map(x=>x.trim()).filter(Boolean).forEach(n=>{ if(names.has(n)) m.set(n,l); else unknown.push(i+":"+n); }));
+    return m;
+  });
+  return {INDEX, LEVEL, unknown};
+}
+const BUILT=buildSet(Q), INDEX=BUILT.INDEX, LEVEL=BUILT.LEVEL, UNKNOWN_LEVELS=BUILT.unknown;
+const levelOf=(qi,name)=>LEVEL[qi].get(name)||0;
+const pointsOf=(qi,name)=>POINTS[levelOf(qi,name)];
+function match(qi, raw){
+  const n=norm(raw); if(!n) return null;
+  const m=INDEX[qi];
+  if(m.has(n)) return m.get(n);
+  if(n.endsWith("s") && m.has(n.slice(0,-1))) return m.get(n.slice(0,-1));
+  let best=null,len=0;                       // fallback: longest known answer inside a longer phrase
+  for(const [k,rec] of m){
+    const min=/[^\x00-\x7f]/.test(k)?2:4;
+    if(k.length>=min && k.length>len && n.includes(k)){best=rec;len=k.length;}
+  }
+  return best;
+}
+// Score for one answer = the points of its rarity level (20 to 100). Not on the list = 0.
+function compute(plays){ // plays: [{id, a:[7 strings]}]
+  const counts=Q.map(()=>new Map());
+  plays.forEach(p=>Q.forEach((_,i)=>{const a=p.a[i]; if(a) counts[i].set(a,(counts[i].get(a)||0)+1);}));
+  const rows=plays.map(p=>{
+    const per=Q.map((_,i)=>p.a[i]?pointsOf(i,p.a[i]):0);
+    return {id:p.id, per, score:per.reduce((x,y)=>x+y,0)/Q.length, t:p.t||0};
+  }).sort((x,y)=>y.score-x.score||x.t-y.t);
+  return {counts, rows};
+}
+function tierOf(score){ return TIERS.find(t=>score>=t[0]); }
+if(typeof module!=="undefined") module.exports={norm,match,compute,tierOf,Q,INDEX,LEVEL,UNKNOWN_LEVELS,levelOf,pointsOf,SETS,buildSet,DAY,DAYNUM,sgDate};
+
+// ---------- 3. The app (screens) ----------
+if(typeof document!=="undefined"){
+const app=document.getElementById("app");
+const S={screen:"home", qi:0, a:[], raw:[], mine:null, plays:new Map(), uid:null, db:null, user:null,
+         online:false, tried:false, saved:false, saveFailed:false, saving:false, nick:"", nickErr:false, sig:"", per:[], turn:null, music:true};
+let timer=null, deadline=0;
+const LOCAL_ID="me-local", LS="zomo-"+DAY, DBDAY="z"+DAY.slice(2);   // e.g. "z26-11-12" in the shared database
+// Shared scoreboard (Supabase). The publishable key is meant to be public.
+const SB_URL="https://oeglexmbwrjrwkokrpnl.supabase.co", SB_KEY="sb_publishable_ngeKhH39R_V0wKZNRRK27Q_bXkYWiT4";
+const HEAD={apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, "Content-Type":"application/json"};
+const OKSET=INDEX.map(m=>new Set([...m.values()].filter(r=>r.ok).map(r=>r.name)));   // answers that count
+function playerId(){ // a random id kept in this browser, so one person = one play per day
+  const make=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"p"+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
+  try{ let id=localStorage.getItem("china-index-player"); if(!id){ id=make(); localStorage.setItem("china-index-player",id); } return id; }
+  catch(e){ return make(); }
+}
+const pad=n=>String(n).padStart(2,"0");
+
+function el(tag, attrs, ...kids){
+  const e=document.createElement(tag);
+  for(const k in (attrs||{})){ const v=attrs[k];
+    if(k==="class") e.className=v; else if(k.startsWith("on")) e.addEventListener(k.slice(2),v);
+    else if(k==="style") e.style.cssText=v; else e.setAttribute(k,v); }
+  kids.flat().forEach(c=>{ if(c!=null&&c!==false) e.append(c.nodeType?c:document.createTextNode(String(c))); });
+  return e;
+}
+
+// ---- Pixel art. Each letter is one coloured square; "." is empty. ----
+const PAL={r:"#d7261e",R:"#ff7a5c",d:"#9e1510",y:"#f2b632",Y:"#ffe08a",D:"#b07c12",k:"#6b4a2b",c:"#fff3d6",g:"#cdbb9a",s:"#e6d5b0",b:"#3ec6c0",t:"#d9b38c",j:"#4f8f2a",J:"#9bc53d",p:"#ff8fab",P:"#ffc2d1",q:"#e0607e",o:"#f28c28",n:"#231a12",m:"#7a4a22",M:"#4a2812",w:"#ffffff",u:"#cfd8e3"};
+const SPR={
+  lantern:[".....kk.....",".....kk.....","...yyyyyy...","..rrrrrrrr..",".rRrrrrrrrr.","rRRrrrrrrrrd","rRrrryyrrrrd","rRrrryyrrrrd","rrrrryyrrrdd","rrrrrrrrrrdd",".rrrrrrrrdd.","..rrrrrrdd..","...yyyyyy...","....yDDy....",".....yy.....","....y..y....","....y..y....","....y..y...."],
+  baozi:["....cccc....","..ccgccgcc..",".cccgccgccc.","cccccggccccc","cccccccccccc","cccccccccccc","sccccccccccs",".sscccccccs.","..ssssssss.."],
+  phone:[".cccccc.","cbbbbbbc","cbbrrbbc","cbbrrbbc","cbbbbbbc","cbyyyybc","cbbbbbbc","cbyyybbc","cbbbbbbc","cbbbbbbc","cccggccc",".cccccc."],
+  tv:["..y......y..","...y....y...","....y..y....","cccccccccccc","cbbbbbbbbccc","cbbbbbbbbcyc","cbbRRbbbbccc","cbbbbbbbbcrc","cbbbbbbbbccc","cccccccccccc",".gg......gg."],
+  pagoda:[".....y.....",".....r.....","...rrrrr...","..rrrrrrr..","....ccc....","..rrrrrrr..",".rrrrrrrrr.","....ccc....",".rrrrrrrrr.","rrrrrrrrrrr","...ccccc...","...cckcc...","...cckcc..."],
+  tanghulu:["..t..",".rrr.","rRrrr","rrrrd",".rdd.",".rrr.","rRrrr","rrrrd",".rdd.",".rrr.","rRrrr","rrrrd",".rdd.","..t..","..t..","..t.."],
+  cracker:["...Y.","..y..","..k..","yyyyy","rrrrr","rRrrd","rRrrd","ryyyd","rRrrd","rRrrd","rrrrd","yyyyy"],
+  icecream:["...r...","..ppp..",".pPppp.","pPppppp","ppppppq","pppppqq","ttttttt",".tktkt.",".ttktt.","..tkt..","..ttt..","...t..."],
+  rabbit:[".cc.cc.",".cp.pc.",".cp.pc.",".cc.cc.","ccccccc","ckccckc","cccpccc","ccccccc",".ccccc."],
+  scroll:["kk.......kk","kkccccccckk","kkcgggggckk","kkccccccckk","kkcggggcckk","kkccccccckk","kkcgggggckk","kkccccccckk","kk.......kk"],
+  durian:[".....k.....","..j.jkj.j..",".jJjJjJjJj.","jJjJjJjJjJj",".JjJjJjJjJ.","jJjJjJjJjJj",".JjJjJjJjJ.","jJjJjJjJjJj",".jJjJjJjJj.","..j.j.j.j.."],
+  ketupat:["....y....","....y....","....j....","...jJj...","..jJjJj..",".jJjJjJj.","jJjJjJjJj",".jJjJjJj.","..jJjJj..","...jJj...","....j....","...y.y..."],
+  towers:["..u.....u..","..u.....u..",".uuu...uuu.",".ubu...ubu.",".uuu...uuu.",".ubu...ubu.",".uuuuuuuuu.",".ubu...ubu.",".uuu...uuu.",".ubu...ubu.","uuuuu.uuuuu","ububu.ububu","uuuuu.uuuuu"],
+  nasilemak:["....wwww....","...wwwwww.rr","..wwwwwwwwrr",".JwwwwwwwwRr","JJwwwwwwuYu.","jjjjjjjjjjjj",".jjjjjjjjjj."],
+  tiger:["oo.....oo","ooooooooo","onooooono","oooncnooo","onocpcono","ooocccooo",".ooooooo."],
+  shuttle:["w..w..w","w..w..w",".w.w.w.",".w.w.w.","..www..","..rrr..","..www..","..www..","...w..."],
+  bubble:[".wwwwwwwww.","wwwwwwwwwww","wwnwwnwwnww","wwwwwwwwwww",".wwwwwwwww.","...ww......","..ww......."],
+  pin:[".rrr.","rrrrr","rrwrr","rrrrr",".rrr.","..r..","..r.."],
+  milo:[".uuuuu.","uwwwwwu","ummmmmu","ummmmmu","ummmmmu","ummmmmu","uMmmmMu",".uuuuu."],
+  kuih:["..jj.pp.yy..",".jJjpPpyYy..","uuuuuuuuuuuu",".gggggggggg."],
+  coin:["..yyyyy..",".yYYyyyy.","yYyyyyyyy","yYy...yyD","yyy...yyD","yyy...yyD","yyyyyyyDD",".yyyyDDD.","..yDDDD.."]
+};
+const NS="http://www.w3.org/2000/svg";
+function sprite(name, scale){
+  const rows=SPR[name], w=Math.max(...rows.map(r=>r.length)), h=rows.length;
+  const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("viewBox",`0 0 ${w} ${h}`); svg.setAttribute("width",w*scale); svg.setAttribute("height",h*scale);
+  svg.setAttribute("shape-rendering","crispEdges"); svg.setAttribute("aria-hidden","true");
+  rows.forEach((row,y)=>[...row].forEach((ch,x)=>{ if(!PAL[ch]) return;
+    const r=document.createElementNS(NS,"rect"); r.setAttribute("x",x); r.setAttribute("y",y); r.setAttribute("width",1); r.setAttribute("height",1); r.setAttribute("fill",PAL[ch]); svg.append(r); }));
+  return svg;
+}
+// Chinese characters as pixels: draw small, keep only solid pixels, then show enlarged.
+function pixelText(text, size, color, scale, shadow){
+  const chars=[...text], c=document.createElement("canvas"); c.width=size*chars.length+1; c.height=size+3;
+  const x=c.getContext("2d");
+  x.font=`700 ${size}px "PingFang SC","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC","Heiti SC",sans-serif`;
+  x.textBaseline="middle"; x.textAlign="center";
+  const draw=(col,dx,dy)=>{ x.fillStyle=col; chars.forEach((ch,i)=>x.fillText(ch,size*i+size/2+dx,size/2+1+dy)); };
+  if(shadow) draw(shadow,1,1);
+  draw(color,0,0);
+  try{ const d=x.getImageData(0,0,c.width,c.height); for(let i=3;i<d.data.length;i+=4) d.data[i]=d.data[i]>110?255:0; x.putImageData(d,0,0); }catch(e){}
+  c.style.cssText=`width:${c.width*scale}px;height:${c.height*scale}px;image-rendering:pixelated`;
+  c.setAttribute("role","img"); c.setAttribute("aria-label",text);
+  return c;
+}
+const seal=text=>el("div",{class:"seal"},text);
+const garland=()=>el("div",{class:"garland","aria-hidden":"true"},
+  [6,22,10,26,4].map((h,i)=>el("div",{class:"lan",style:`--h:${h}px;animation-delay:${-i*0.5}s`},sprite(i%2?"ketupat":"durian",3))));
+const mast=right=>el("header",{class:"mast"},el("div",{class:"logo"},sprite("milo",2),el("span",null,"ZOMOKRILLION")),
+  el("div",{class:"mastr"},el("span",{class:"lbl gold"},right),
+    el("button",{class:"mus",id:"mus","aria-pressed":String(S.music),onclick:toggleMusic},S.music?"Music on":"Music off")));
+
+// ---- How gao is your Milo? 100 points = 5 scoops. 7 questions = 35 scoops = 100% gao. ----
+function stamp(c,name,x0,y0){ SPR[name].forEach((row,y)=>[...row].forEach((ch,x)=>{ if(PAL[ch]){ c.fillStyle=PAL[ch]; c.fillRect(x0+x,y0+y,1,1); } })); }
+function drawMilo(c,p,frame,busy){ // p = 0 to 7 (one per question); busy = powder is being added
+  const W=120,H=76,px=(col,x,y,w,h)=>{c.fillStyle=col;c.fillRect(x,y,w||1,h||1);};
+  const f=Math.max(0,Math.min(p/7,1));
+  px("#f3e3bd",0,0,W,H);                                                                    // kopitiam wall
+  for(let x=0;x<W;x+=8) for(let y=28;y<52;y+=8) px(((x+y)/8)%2?"#2a9d8f":"#e6f2ea",x,y,8,8);   // green and white tiles
+  px("#c9b48a",0,27,W,1);
+  px("#16182b",6,5,30,17); px("#ffcc29",8,7,26,1); [10,13,16,19].forEach((y,i)=>px("#fff6dc",8,y,[18,22,14,20][i],1));   // menu board
+  px("#efe9dc",0,52,W,6); px("#bdb5a4",0,58,W,2); px("#6b3e1f",0,60,W,H); px("#4f2c14",0,60,W,1);   // marble table
+  stamp(c,"durian",6,43); stamp(c,"kuih",90,48);
+  const gx=47,gy=10,gw=27,gh=41;                                                            // the glass
+  px("#ffffff",gx,gy,gw,gh); px("#e8f1f6",gx+gw-5,gy,5,gh);
+  const lh=4+Math.round(f*(gh-9)), top=gy+gh-lh;
+  const mix=(a,b)=>"rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*f)).join(",")+")";
+  px(mix([214,178,138],[66,35,15]),gx,top,gw,lh);                                           // the Milo: darker as it gets more gao
+  px(mix([236,214,186],[120,78,44]),gx,top,gw,2);                                           // froth
+  if(f<0.5){ px("rgba(255,255,255,.7)",gx+5,top+3,4,4); px("rgba(255,255,255,.7)",gx+15,top+5,4,4); }   // ice cubes when it's still thin
+  if(f>=0.75){ for(let x=gx+2;x<gx+gw-2;x++) px("#3b1f0e",x,top-1-((x*7)%3?0:1),1,2); }     // Milo Dinosaur: powder on top
+  px("rgba(255,255,255,.45)",gx+2,gy+2,2,gh-5);
+  px("#9fb4c2",gx-1,gy,1,gh+1); px("#9fb4c2",gx+gw,gy,1,gh+1); px("#9fb4c2",gx-1,gy+gh,gw+2,1);   // glass outline
+  px("#9fb4c2",gx+gw+1,gy+10,5,1); px("#9fb4c2",gx+gw+5,gy+10,1,16); px("#9fb4c2",gx+gw+1,gy+25,5,1);   // handle
+  px("#fff6dc",gx-6,gy+gh+1,gw+12,2); px("#cdbb9a",gx-4,gy+gh+3,gw+8,1);                    // saucer
+  for(let i=1;i<=7;i++){ const y=gy+gh-4-Math.round(i/7*(gh-9)); px(p>=i-1e-6?"#d62828":"#b9a98c",gx-7,y,4,1); }   // gao marks
+  if(busy){ px("#8d95a3",gx+10,1,8,2); px("#8d95a3",gx+17,0,6,1);                           // a spoon, and powder falling in
+    for(let i=0;i<6;i++) px("#5a3214",gx+9+((frame*2+i*3)%9), 4+((frame*3+i*5)%Math.max(3,top-6))); }
+}
+function wallScene(from,to){ // a picture of the Milo; it fills and darkens from "from" to "to"
+  const cv=document.createElement("canvas"); cv.width=120; cv.height=76;
+  cv.setAttribute("role","img"); cv.setAttribute("aria-label",`Your Milo is ${Math.round(to/7*100)} percent gao`);
+  const c=cv.getContext("2d"), num=el("span",null,""), scoops=Math.round((to-from)*5);
+  const meter=el("div",{class:"meter","aria-hidden":"true"},num,scoops>0?el("small",null,"+"+scoops+(scoops===1?" scoop":" scoops")):null);
+  const fill=el("i"), bar=el("div",{class:"wallbar","aria-hidden":"true"},fill);
+  const show=(p,frame,busy)=>{ drawMilo(c,p,frame,busy); num.textContent=Math.round(p/7*100)+"% gao"; fill.style.transform=`scaleX(${p/7})`; };
+  const still=from===to||(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if(still) show(to,0,false);
+  else{ const t0=performance.now()+350, dur=900+1600*Math.abs(to-from); let last=-1;
+    const tick=now=>{ if(!cv.isConnected&&now-t0>400) return;
+      const k=Math.max(0,Math.min((now-t0)/dur,1)), fr=Math.floor(Math.max(0,now-t0)/110);
+      if(fr!==last||k===1){ last=fr; show(from+(to-from)*k,k===1?0:fr,k>0&&k<1); }
+      if(k<1) requestAnimationFrame(tick); };
+    show(from,0,false); requestAnimationFrame(tick); }
+  return el("div",{class:"wallwrap"},el("div",{class:"scene"},cv,meter),bar);
+}
+
+// ---- Background music: an original festive loop, made by the browser (no audio file). ----
+const Music=(()=>{
+  const F={F2:87.31,G2:98,A2:110,C3:130.81,D3:146.83,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880,C6:1046.5};
+  const LEAD=["C5 E5 G5 E5 C5 E5 G5 -","A5 G5 F5 E5 D5 - D5 -","D5 F5 A5 F5 D5 F5 A5 -","G5 F5 E5 D5 C5 - C5 -",
+              "E5 E5 G5 G5 A5 A5 G5 -","F5 F5 A5 A5 G5 - E5 -","D5 E5 F5 G5 A5 G5 F5 D5","C5 - E5 - C5 - - -"].join(" ").split(" ");
+  const BASS=["C3","G2","D3","G2","C3","F2","G2","C3"], E=0.17;
+  let ac=null,out=null,noise=null,id=null,step=0,nextT=0;
+  function tone(f,t,d,type,v){ const o=ac.createOscillator(),g=ac.createGain(); o.type=type; o.frequency.value=f;
+    g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.connect(g); g.connect(out); o.start(t); o.stop(t+d+0.02); }
+  function tick(t){ const g=ac.createGain(),s=ac.createBufferSource(),hp=ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=6000;
+    s.buffer=noise; g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05); s.connect(hp); hp.connect(g); g.connect(out); s.start(t); s.stop(t+0.06); }
+  function plan(){ while(nextT<ac.currentTime+0.3){ const n=LEAD[step], bar=Math.floor(step/8), beat=step%8;
+      if(n!=="-"){ tone(F[n],nextT,E*0.95,"square",0.10); tone(F[n]/2,nextT,E*0.6,"square",0.03); }
+      if(beat%4===0) tone(F[BASS[bar]],nextT,E*1.8,"triangle",0.22);
+      if(beat%2===1) tick(nextT);
+      nextT+=E; step=(step+1)%LEAD.length; } }
+  return {
+    start(){ try{
+        if(!ac){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; ac=new AC();
+          out=ac.createGain(); out.gain.value=0.5; out.connect(ac.destination);
+          noise=ac.createBuffer(1,2205,22050); const d=noise.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
+        ac.resume(); if(id) return; nextT=ac.currentTime+0.06; id=setInterval(plan,60); }catch(e){} },
+    stop(){ try{ if(id){ clearInterval(id); id=null; } if(ac) ac.suspend(); }catch(e){} },
+    sfx(level){ try{ if(!ac||ac.state!=="running") return; const t=ac.currentTime+0.02;   // one rising note per rarity level
+        if(!level){ tone(F.A2,t,0.25,"square",0.12); return; }
+        ["C5","E5","G5","A5","C6"].slice(0,level).forEach((n,i)=>tone(F[n],t+i*0.09,0.16,"square",0.12)); }catch(e){} }
+  };
+})();
+function toggleMusic(){
+  S.music=!S.music;
+  try{ localStorage.setItem("china-index-music",S.music?"on":"off"); }catch(e){}
+  if(S.music) Music.start(); else Music.stop();
+  const b=document.getElementById("mus"); if(b){ b.textContent=S.music?"Music on":"Music off"; b.setAttribute("aria-pressed",String(S.music)); }
+}
+function stars(){ // a small tile of pixel stars behind everything
+  try{ const c=document.createElement("canvas"); c.width=c.height=120; const x=c.getContext("2d");
+    [[8,14,"#4a3a80"],[52,6,"#4a3a80"],[96,30,"#b9add9"],[30,58,"#4a3a80"],[76,70,"#4a3a80"],[110,96,"#4a3a80"],[14,100,"#f2b632"]]
+      .forEach(([px,py,col])=>{x.fillStyle=col;x.fillRect(px,py,2,2);});
+    document.body.style.backgroundImage=`url(${c.toDataURL()})`; }catch(e){}
+}
+
+function allPlays(){ // saved plays + my own if it is not saved
+  const arr=[...S.plays.entries()].map(([id,p])=>({id,a:p.a,t:p.t,raw:p.raw}));
+  if(S.mine && !(S.uid && S.plays.has(S.uid))) arr.push({id:LOCAL_ID,a:S.mine.a,t:S.mine.t,raw:S.mine.raw});
+  return arr;
+}
+const myId=()=> (S.uid && S.plays.has(S.uid)) ? S.uid : LOCAL_ID;
+
+function render(){
+  clearInterval(timer);
+  const typing=document.activeElement&&document.activeElement.id==="nick";
+  app.replaceChildren(garland(), ...(S.screen==="play"?viewPlay():S.screen==="turn"?viewTurn():S.screen==="result"?viewResult():viewHome()).filter(Boolean));
+  if(S.screen==="turn"){ window.scrollTo(0,0); if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+    setTimeout(()=>{ const b=document.getElementById("next"); if(b&&S.screen==="turn") b.focus({preventScroll:true}); },650); }
+  if(S.screen==="play") startTimer();
+  if(typing){ const n=document.getElementById("nick"); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } }
+}
+function begin(){
+  if(S.mine){ S.screen="result"; render(); return; }
+  const name=S.nick.trim().slice(0,20);
+  if(!name){ S.nickErr=true; render(); const n=document.getElementById("nick"); if(n) n.focus(); return; }
+  S.nick=name; S.nickErr=false;
+  try{ localStorage.setItem("china-index-nick",name); }catch(e){}
+  S.screen="play"; S.qi=0; S.a=[]; S.raw=[]; S.per=[]; render();
+}
+
+function viewHome(){
+  const n=S.plays.size;
+  const nick=el("input",{type:"text",id:"nick",maxlength:"20",autocomplete:"nickname",placeholder:"e.g. Durian King"});
+  nick.value=S.nick;
+  nick.addEventListener("input",e=>{ S.nick=e.target.value; if(S.nickErr){ S.nickErr=false; const w=document.getElementById("nickwarn"); if(w) w.remove(); } });
+  nick.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); if(!e.repeat) begin(); } });
+  return [
+    mast("Day "+DAYNUM),
+    el("section",{class:"panel"},
+      el("div",{class:"row2"},el("div",{class:"title",role:"img","aria-label":"Zomokrillion"},
+          el("span",null,"ZOMO",sprite("durian",3)),el("span",null,"KRILLION")),seal("HOW GAO?")),
+      el("span",{class:"lbl red"},"Today's challenge"),
+      el("h1",null,"How gao is your Milo?"),
+      el("p",null,`${Q.length} questions. ${SECS} seconds each. The rarer your answer, the more gao your Milo gets.`),
+      el("p",{style:"font-size:15px"},"Gao means thick and strong, the way the kopitiam uncle makes it.")),
+    S.mine?null:el("div",{class:"field"},
+      el("label",{class:"lbl gold",for:"nick"},"Your nickname (shown on the leaderboard)"),
+      nick,
+      S.nickErr?el("p",{class:"lbl warn",id:"nickwarn",role:"alert"},"Type a nickname first"):null),
+    el("button",{class:"btn",id:"start",onclick:begin}, S.mine?"See my result >":"Jom, start >"),
+    el("p",{class:"lbl soft center"}, S.online ? `${n} ${n===1?"player has":"players have"} finished today` :
+        S.tried ? "Can't reach the leaderboard. You can still play" : "Connecting to the leaderboard…"),
+    streak()>0&&!S.mine?el("p",{class:"lbl gold center"},`Streak: ${streak()} ${streak()===1?"day":"days"}. Play today to keep it going`):null,
+    el("div",{class:"cats"},Q.map((q,i)=>el("div",{class:"cat"},el("div",{class:"tile"},sprite(q.i,3)),el("span",null,q.c)))),
+    el("div",{class:"legend","aria-label":"Rarity levels and points"},[1,2,3,4,5].map(l=>el("span",{class:"lv l"+l},`${LEVELS[l]} +${l} ${l===1?"scoop":"scoops"}`))),
+    el("ol",{class:"rules"},
+      el("li",null,el("span",{class:"lbl gold"},"01"),el("span",null,"One answer per question. No changes after you submit.")),
+      el("li",null,el("span",{class:"lbl gold"},"02"),el("span",null,"Type in English or Malay. Spelling can be a bit cincai.")),
+      el("li",null,el("span",{class:"lbl gold"},"03"),el("span",null,"Answers that aren't on the answer list add no Milo."))),
+    el("p",{class:"note"},"This game doesn't test how much you know. It tests how much you know that other people don't.")
+  ];
+}
+
+function viewPlay(){
+  const q=Q[S.qi];
+  const input=el("input",{type:"text",id:"answer",autocomplete:"off",autocapitalize:"off",spellcheck:"false",maxlength:"50",placeholder:"Type one answer","aria-label":q.p});
+  input.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); if(!e.repeat) submit(); } });
+  setTimeout(()=>input.focus(),0);
+  return [
+    mast("Day "+DAYNUM),
+    el("section",{class:"play"},
+      el("div",{class:"qhead"},
+        el("span",{class:"lbl"},`Question ${pad(S.qi+1)} / ${pad(Q.length)}`),
+        el("span",{class:"secs",id:"secs"},SECS)),
+      el("div",{class:"bar"},el("i",{id:"bar"})),
+      el("div",{class:"panel qpanel"},
+        el("div",{class:"qcat"},el("div",{class:"tile"},sprite(q.i,3)),el("span",{class:"chip"},q.c)),
+        el("h2",null,q.p),
+        q.h?el("p",null,q.h):null,
+        input,
+        el("button",{class:"btn",id:"submit",onclick:submit},"Submit answer")))
+  ];
+}
+function startTimer(){
+  deadline=Date.now()+SECS*1000;
+  timer=setInterval(()=>{
+    const left=Math.max(0,deadline-Date.now());
+    const s=document.getElementById("secs"), b=document.getElementById("bar");
+    if(s) s.textContent=Math.ceil(left/1000);
+    if(b) b.style.transform=`scaleX(${Math.ceil(left/(SECS*1000)*30)/30})`;   // moves in chunky steps
+    if(left<=0) submit();
+  },100);
+}
+function submit(){
+  clearInterval(timer);
+  const raw=(document.getElementById("answer")?.value||"").trim().slice(0,50);
+  const rec=match(S.qi,raw), ok=!!(rec&&rec.ok);
+  S.a[S.qi]= ok ? rec.name : "";
+  S.raw[S.qi]= ok ? "" : raw;                 // unknown answers are kept for the owner's "misses" table
+  let others=0;                               // how many other players gave this same answer so far
+  if(ok) S.plays.forEach((p,id)=>{ if(id!==S.uid && p.a[S.qi]===rec.name) others++; });
+  const level= ok ? levelOf(S.qi,rec.name) : 0, pts=POINTS[level];
+  const before=S.per.reduce((x,y)=>x+y,0);
+  S.per[S.qi]=pts;
+  let tip="";                                 // if not a Legend answer, show one that was
+  if(level<5){ const best=[...LEVEL[S.qi].entries()].filter(e=>e[1]===5).map(e=>e[0]); if(best.length){ const n=best[Math.floor(Math.random()*best.length)], r=INDEX[S.qi].get(norm(n)); tip=n+(r&&r.note&&norm(r.note)!==norm(n)?` (${r.note})`:""); } }
+  S.turn={qi:S.qi, ok, raw, pts, level, others, before, tip, at:Date.now(), name: rec?rec.name:raw, note: rec?rec.note:""};
+  S.screen="turn"; render(); Music.sfx(level);
+}
+const gaoPct=pts=>Math.round(pts/7);          // total points (0 to 700) -> how gao, in percent
+const scoopsOf=pts=>Math.round(pts/20);       // total points -> scoops of Milo (0 to 35)
+function viewTurn(){ // the score for this answer, and the Milo so far
+  const t=S.turn, total=t.before+t.pts, last=t.qi===Q.length-1;
+  let line;
+  if(t.ok) line= !S.online ? "" : t.others===0 ? "No other player has said this yet." : `${t.others} other ${t.others===1?"player":"players"} said this too.`;
+  else if(t.note) line=`Sorry, ${t.note}. No Milo for that.`;
+  else if(t.raw) line="That isn't on the answer list. No Milo for that.";
+  else line="Time ran out. No Milo for that.";
+  const extra= t.ok && t.note && norm(t.note)!==norm(t.name) ? t.note : "";
+  const sc=t.pts/20;
+  return [
+    mast("Day "+DAYNUM),
+    wallScene(t.before/100,total/100),
+    el("section",{class:"panel"},
+      el("div",{class:"row2"},el("span",{class:"lbl"},`Question ${pad(t.qi+1)} / ${pad(Q.length)}`),
+        el("span",{class:"pts big"+(t.pts?"":" zero")},"+"+sc+(sc===1?" scoop":" scoops"))),
+      el("h2",null, t.ok||t.note ? t.name : (t.raw?`"${t.raw}"`:"No answer")),
+      t.ok?el("div",{class:"row2"},el("span",{class:"lv l"+t.level},`${LEVELS[t.level]} answer · level ${t.level} of 5`)):null,
+      extra?el("p",null,extra):null,
+      line?el("p",null,line):null,
+      t.tip?el("p",null,"A Legend answer: "+t.tip):null,
+      el("div",{class:"rank"},el("span",{class:"lbl"},"Your Milo so far"),el("strong",null,`${gaoPct(total)}% gao`)),
+      el("button",{class:"btn",id:"next",onclick:nextTurn}, last?"See my result >":"Next question >"))
+  ];
+}
+function nextTurn(){
+  if(S.turn && Date.now()-S.turn.at<600) return;     // ignore an accidental double press
+  if(S.qi<Q.length-1){ S.qi++; S.screen="play"; render(); } else finish(); }
+// ---- Streak: how many days in a row this browser has played ----
+function streak(){ // current streak (0 if a day was missed)
+  try{ const s=JSON.parse(localStorage.getItem("zomo-streak")||"null"); if(!s) return 0;
+    return (s.last===DAY || s.last===sgDate(Date.now()-86400000)) ? s.n : 0; }catch(e){ return 0; }
+}
+function bumpStreak(){
+  try{ const s=JSON.parse(localStorage.getItem("zomo-streak")||"null")||{last:"",n:0};
+    if(s.last===DAY) return;
+    const n= s.last===sgDate(Date.now()-86400000) ? s.n+1 : 1;
+    localStorage.setItem("zomo-streak",JSON.stringify({last:DAY,n})); }catch(e){}
+}
+function shareText(mine,pct,title){ // a spoiler-free result to paste anywhere
+  const sq=["⬛","⬜","🟩","🟦","🟪","🟥"];
+  const squares=mine.a.map((a,i)=>sq[a?levelOf(i,a):0]).join("");
+  const url=location.protocol.startsWith("http") ? location.origin+location.pathname : "";
+  const st=streak();
+  return `Zomokrillion · Day ${DAYNUM}\n🥤 My Milo is ${pct}% gao (${title})\n${squares}`+(st>1?`\n🔥 ${st}-day streak`:"")+(url?`\n${url}`:"");
+}
+function finish(){
+  S.mine={v:2,day:DAY,a:S.a.slice(),raw:S.raw.slice(),t:Date.now(),name:S.nick.trim().slice(0,20)||"Player"};
+  try{ localStorage.setItem(LS,JSON.stringify(S.mine)); }catch(e){}
+  bumpStreak();
+  S.screen="result"; render(); save();
+}
+async function save(){ // put my play on the shared scoreboard
+  if(!S.mine||S.saved||S.saving) return;
+  S.saving=true;
+  try{
+    const r=await fetch(SB_URL+"/rest/v1/plays",{method:"POST",headers:{...HEAD,Prefer:"return=minimal"},
+      body:JSON.stringify({day:DBDAY,player:S.uid,nickname:S.mine.name||"Player",answers:S.mine.a})});
+    if(r.ok||r.status===409){ S.saved=true; S.saveFailed=false; sendMisses(); }   // 409 = already saved
+    else S.saveFailed=true;
+  }catch(e){ S.saveFailed=true; }
+  S.saving=false;
+  if(S.saved) load(); else if(S.screen==="result") render();
+}
+function sendMisses(){ // answers the list didn't know go to a private table for the owner
+  try{ if(localStorage.getItem(LS+"-misses")) return; localStorage.setItem(LS+"-misses","1"); }catch(e){}
+  const rows=(S.mine.raw||[]).map((r,i)=>r?{day:DBDAY,question:i+1,answer:String(r).slice(0,50)}:null).filter(Boolean);
+  if(rows.length) fetch(SB_URL+"/rest/v1/misses",{method:"POST",headers:{...HEAD,Prefer:"return=minimal"},body:JSON.stringify(rows)}).catch(()=>{});
+}
+async function load(){ // read everyone's plays for today
+  let sig=S.sig;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/plays?day=eq.${DBDAY}&select=player,nickname,answers,created_at&order=created_at.asc&limit=1000`,{headers:HEAD});
+    if(!r.ok) throw new Error("load failed");
+    const rows=await r.json(), m=new Map();
+    rows.forEach(v=>{
+      if(!v||!Array.isArray(v.answers)||v.answers.length!==Q.length) return;
+      m.set(String(v.player),{a:v.answers.map((x,i)=>typeof x==="string"&&OKSET[i].has(x)?x:""),raw:[],
+        t:Date.parse(v.created_at)||0,name:String(v.nickname||"").slice(0,20)});
+    });
+    S.plays=m; S.online=true;
+    if(m.has(S.uid)){ S.saved=true; S.saveFailed=false; if(!S.mine) S.mine={day:DAY,...m.get(S.uid)}; }
+    else if(S.mine) save();
+    sig="on:"+[...m.keys()].join(",")+":"+S.saved;
+  }catch(e){ S.online=false; sig="off"; }
+  const first=!S.tried; S.tried=true;
+  if((first||sig!==S.sig) && (S.screen==="home"||S.screen==="result")) { S.sig=sig; render(); }   // never interrupt a question
+  S.sig=sig;
+}
+
+function distChart(rows,me){ // how gao everyone's Milo is (one bar per 10%)
+  const B=10, counts=Array(B).fill(0), n=rows.length;
+  let mine=-1, my=0;
+  rows.forEach(r=>{ const k=Math.min(B-1,Math.floor(r.score/10)); counts[k]++; if(r.id===me){ mine=k; my=r.score; } });
+  const max=Math.max(...counts,1), beaten=rows.filter(r=>r.id!==me&&r.score<my).length;
+  const label=k=>`${k*10}% to ${k===B-1?100:k*10+9}% gao: ${counts[k]} ${counts[k]===1?"player":"players"}`+(k===mine?" (you are here)":"");
+  const info=el("p",{class:"lbl","aria-live":"polite"},`Tallest bar: ${max} ${max===1?"player":"players"}. Tap a bar for details`);
+  const cols=counts.map((c,k)=>{
+    const col=el("div",{class:"col"+(k===mine?" me":""),tabindex:"0",role:"img","aria-label":label(k)},
+      k===mine?el("span",{class:"you"},"YOU"):null, el("i",{style:`height:${c?Math.max(8,Math.round(c/max*82)):0}%`}));
+    const show=()=>{ info.textContent=label(k); };
+    col.addEventListener("pointerenter",show); col.addEventListener("focus",show); col.addEventListener("click",show);
+    return col; });
+  const line= n<2 ? "You're the first player today. This chart fills in as friends play."
+                  : `Your Milo is more gao than ${beaten} of the ${n-1} other ${n-1===1?"player's":"players'"}.`;
+  return el("section",{class:"sec"},
+    el("h3",null,el("span",null,"How everyone did"),el("span",{class:"lbl gold"},`${n} ${n===1?"player":"players"}`)),
+    el("div",{class:"panel qa"},el("p",{style:"font-size:15px"},line),
+      el("div",{class:"dist"},cols),
+      el("div",{class:"axis"},el("span",{class:"lbl"},"0%"),el("span",{class:"lbl"},"50%"),el("span",{class:"lbl"},"100% gao")),
+      info));
+}
+
+function viewResult(){
+  const plays=allPlays(), {counts,rows}=compute(plays), me=myId();
+  const idx=rows.findIndex(r=>r.id===me), row=rows[idx], mine=plays.find(p=>p.id===me);
+  const t=tierOf(row.score), n=rows.length, pts=row.score*Q.length, pct=gaoPct(pts);
+  const rankText= n>1 ? `No. ${idx+1} of ${n}` : "First player in";
+  const out=[ mast("Day "+DAYNUM),
+    wallScene(pts/100,pts/100),
+    el("section",{class:"panel"},
+      el("div",{class:"row2"},el("span",{class:"lbl"},"My Milo is"),seal(t[2])),
+      el("div",{class:"score"},pct+"%",el("small",null," gao")),
+      el("h2",null,t[1]),
+      el("p",null,t[3]),
+      el("div",{class:"rank"},el("span",{class:"lbl"},"Milo powder"),el("strong",null,`${scoopsOf(pts)} of 35 scoops`)),
+      el("div",{class:"rank"},el("span",{class:"lbl"},"Today's rank"),el("strong",null,rankText)),
+      streak()>0?el("div",{class:"rank"},el("span",{class:"lbl"},"Streak"),el("strong",null,`${streak()} ${streak()===1?"day":"days"} in a row`)):null),
+    el("p",{class:"note"},"Every answer has a rarity level from 1 (Tourist) to 5 (Legend), worth 1 to 5 scoops. The levels are hand-set estimates of how well known each answer is."),
+    (me===LOCAL_ID && S.tried && (S.saveFailed||!S.online)) ?
+      el("p",{class:"note"},"Your score isn't on the leaderboard yet. Keep this page open; it will try again by itself.") : null,
+    el("div",{class:"acts"},
+      el("button",{class:"btn",id:"copy",onclick:async e=>{
+        const txt=shareText(mine,pct,t[1]), b=e.currentTarget;
+        try{ if(navigator.share){ await navigator.share({text:txt}); return; } }catch(err){ if(err&&err.name==="AbortError") return; }
+        try{ await navigator.clipboard.writeText(txt); b.textContent="Copied! Paste it anywhere"; }
+        catch(err){ b.textContent="Couldn't copy. Screenshot instead"; }
+      }},"Share my result"),
+      el("p",{class:"lbl soft center"},"Want an image? Screenshot the card"))
+  ];
+  out.push(distChart(rows,me));
+  // The reveal
+  const sec=el("section",{class:"sec"},el("h3",null,el("span",null,"The reveal"),el("span",{class:"lbl gold"},"Jawapan")));
+  Q.forEach((q,i)=>{
+    const my=mine.a[i], rawMine=mine.raw&&mine.raw[i];
+    const list=[...counts[i].entries()].sort((x,y)=>y[1]-x[1]), max=list[0]?list[0][1]:1;
+    let line;
+    if(my) line=`Your answer: ${my}`;
+    else if(rawMine){ const r=match(i,rawMine); line= r&&!r.ok ? `Your answer: ${r.name}. Sorry, ${r.note}.` : `Your answer "${rawMine}" isn't on the answer list.`; }
+    else line="No answer.";
+    const sc=row.per[i]/20;
+    const box=el("div",{class:"panel qa"},
+      el("div",{class:"top"},el("strong",null,`${pad(i+1)} ${q.p}`),
+        el("span",{class:"pts"+(row.per[i]?"":" zero")},"+"+sc)),
+      el("p",{style:"font-size:15px"},line));
+    let shown=list.slice(0,6); const mi=list.findIndex(x=>x[0]===my);
+    if(mi>=6) shown=[...list.slice(0,5),list[mi]];
+    shown.forEach(([name,c])=>{
+      const rec=INDEX[i].get(norm(name));
+      const note=rec&&rec.note&&norm(rec.note)!==norm(name)?` (${rec.note})`:"";
+      box.append(el("div",{class:"row"+(name===my?" me":"")},
+        el("span",null,name+note,el("span",{class:"lv l"+levelOf(i,name)},LEVELS[levelOf(i,name)])),
+        el("span",{class:"m"},el("i",{style:`width:${Math.round(c/max*100)}%`})),
+        el("span",{class:"n"},c)));
+    });
+    if(list.length>shown.length) box.append(el("p",{class:"lbl"},`+ ${list.length-shown.length} more answers`));
+    sec.append(box);
+  });
+  out.push(sec);
+  // Leaderboard
+  const board=el("div",{class:"panel qa"});
+  rows.slice(0,10).forEach((r,k)=>board.append(el("div",{class:"lb"+(r.id===me?" me":"")},
+    el("span",{class:"lbl"},pad(k+1)),
+    el("span",null,r.id===me?((S.mine.name||"Me")+" (you)"):((S.plays.get(r.id)||{}).name||"Player "+(k+1))),
+    el("span",{class:"lbl"},gaoPct(r.score*Q.length)+"%"))));
+  out.push(el("section",{class:"sec"},el("h3",null,el("span",null,"Leaderboard"),el("span",{class:"lbl gold"},`${n} ${n===1?"player":"players"}`)),board));
+  out.push(el("button",{class:"btn ghost",onclick:()=>{S.screen="home";render();}},"Back to the start"));
+  return out;
+}
+
+function valid(d){ return d&&d.day===DAY&&Array.isArray(d.a)&&d.a.length===Q.length; }
+
+function start(){
+  stars();
+  try{ const m=JSON.parse(localStorage.getItem(LS)||"null"); if(valid(m)) S.mine=m; }catch(e){}
+  try{ S.nick=localStorage.getItem("china-index-nick")||""; S.music=localStorage.getItem("china-index-music")!=="off"; }catch(e){}
+  document.addEventListener("pointerdown",e=>{ if(S.music && !(e.target&&e.target.id==="mus")) Music.start(); },{once:true});   // browsers only allow sound after a tap
+  document.addEventListener("visibilitychange",()=>{ if(document.hidden) Music.stop(); else if(S.music) Music.start(); });
+  S.uid=playerId();
+  render(); load();
+  setInterval(()=>{
+    if(sgDate(Date.now())!==DAY && (S.screen==="home"||S.screen==="result")){ location.reload(); return; }   // a new day has started
+    if(S.screen!=="play" && !document.hidden) load();
+  }, 20000);   // refresh the scores every 20 seconds
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden && S.screen!=="play") load(); });
+}
+start();
+}
+</script>
+</body>
+</html>
